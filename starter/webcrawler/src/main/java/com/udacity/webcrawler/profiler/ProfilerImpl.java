@@ -3,9 +3,14 @@ package com.udacity.webcrawler.profiler;
 import javax.inject.Inject;
 import java.io.IOException;
 import java.io.Writer;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.ZonedDateTime;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 
 import static java.time.format.DateTimeFormatter.RFC_1123_DATE_TIME;
@@ -33,13 +38,39 @@ final class ProfilerImpl implements Profiler {
     //       ProfilingMethodInterceptor and return a dynamic proxy from this method.
     //       See https://docs.oracle.com/javase/10/docs/api/java/lang/reflect/Proxy.html.
 
-    return delegate;
+    if(!isClassProfiled(klass)){
+      throw new IllegalArgumentException("Class "+ klass.getName() + " does not contain any profiled method");
+    }
+
+    ProfilingMethodInterceptor methodInterceptor = new ProfilingMethodInterceptor(clock, delegate, state, startTime);
+
+    Object proxy = Proxy.newProxyInstance(
+            ProfilerImpl.class.getClassLoader(),
+            new Class<?>[]{klass},
+            methodInterceptor
+    );
+    return (T)proxy;
+  }
+  @Profiled
+  public Boolean isClassProfiled(Class<?> klass){
+    List<Method> methods = Arrays.asList(klass.getDeclaredMethods());
+    if(methods.isEmpty()) return false;
+    for(Method method: methods){
+      if(method.getAnnotation(Profiled.class) != null) return true;
+    }
+    return false;
   }
 
   @Override
   public void writeData(Path path) {
     // TODO: Write the ProfilingState data to the given file path. If a file already exists at that
     //       path, the new data should be appended to the existing file.
+    try(Writer writer = Files.newBufferedWriter(path)) {
+      writeData(writer);
+      writer.flush();
+    }catch (IOException ioException){
+      ioException.printStackTrace();
+    }
   }
 
   @Override
