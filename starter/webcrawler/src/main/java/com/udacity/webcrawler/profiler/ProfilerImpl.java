@@ -7,6 +7,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.time.Clock;
 import java.time.ZonedDateTime;
 import java.util.Arrays;
@@ -65,19 +66,23 @@ final class ProfilerImpl implements Profiler {
   public void writeData(Path path) {
     // TODO: Write the ProfilingState data to the given file path. If a file already exists at that
     //       path, the new data should be appended to the existing file.
-    try(Writer writer = Files.newBufferedWriter(path)) {
+    try(Writer writer = Files.newBufferedWriter(path, StandardOpenOption.CREATE, StandardOpenOption.APPEND)) {
       writeData(writer);
       writer.flush();
     }catch (IOException ioException){
       ioException.printStackTrace();
     }
   }
-
   @Override
-  public void writeData(Writer writer) throws IOException {
-    writer.write("Run at " + RFC_1123_DATE_TIME.format(startTime));
-    writer.write(System.lineSeparator());
-    state.write(writer);
-    writer.write(System.lineSeparator());
+  public void writeData(Writer writer){
+    try{
+      writer.write("Run at " + RFC_1123_DATE_TIME.format(startTime));
+      writer.write(System.lineSeparator());
+      state.write(writer);
+      writer.write(System.lineSeparator());
+      writer.flush();
+    }catch (IOException e){
+      e.printStackTrace();
+    }
   }
 }
